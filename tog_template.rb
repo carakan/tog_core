@@ -53,11 +53,11 @@ end unless Object.const_defined? :Colored
 String.send(:include, Colored)
 
 def silence!
-#  Rails::Generator::Base.logger.quiet = true
+  #  Rails::Generator::Base.logger.quiet = true
 end
 
 def verbum!
-#  Rails::Generator::Base.logger.quiet = false
+  #  Rails::Generator::Base.logger.quiet = false
 end
 
 def add_desert_require
@@ -76,24 +76,23 @@ def create_bundler_gemfile
   gsub_file File.join('config', 'environment.rb'), /^(RAILS_GEM_VERSION = ')\d\.\d\.\d('.*)/, "\\1#{rails_version}\\2"
   puts 'Creating Gemfile...'
   file "Gemfile", %Q{
-clear_sources
-source 'http://gems.github.com'
-source 'http://gemcutter.org'
-bundle_path 'vendor/bundled_gems'
+source :gemcutter
 gem 'rails',                            '#{rails_version}'
-gem 'tog-tog',                          '>= 0.5',   :require_as => 'tog'
-gem 'mislav-will_paginate',             '~> 2.3.6', :require_as => 'will_paginate'
+gem 'tog-tog',                          '>= 0.5.4',    :require => 'tog'
+gem 'mislav-will_paginate',             '~> 2.3.6',    :require => 'will_paginate'
 gem 'desert',                           '>= 0.5.2'
-gem 'thoughtbot-factory_girl',                      :require_as => 'factory_girl', :only => :test
-gem 'thoughtbot-shoulda',               '>=2.10.1', :require_as => 'shoulda', :only => :tes
-gem 'mocha',                            '0.9.7',    :only => :test
-gem 'jackdempsey-acts_as_commentable',  '2.0.1',    :require_as => 'acts_as_commentable'
-gem 'mreinsch-acts_as_rateable',        '2.0.1',    :require_as => 'acts_as_rateable'
-gem 'RedCloth',                         '>= 4.2.0', :require_as => 'redcloth'
-gem 'mbleigh-acts-as-taggable-on',      '1.0.5',    :require_as => 'acts-as-taggable-on'
-gem 'linkingpaths-acts_as_abusable',    '0.0.2',    :require_as => 'acts_as_abusable'
-gem 'rubyist-aasm',                     '~> 2.1.1', :require_as => 'aasm'
+gem 'jackdempsey-acts_as_commentable',  '>= 2.0.2',    :require => 'acts_as_commentable'
+gem 'mreinsch-acts_as_rateable',        '>= 2.0.1',    :require => 'acts_as_rateable'
+gem 'RedCloth',                         '>= 4.2.0',    :require => 'redcloth'
+gem 'mbleigh-acts-as-taggable-on',      '>= 1.0.5',    :require => 'acts-as-taggable-on'
+gem 'linkingpaths-acts_as_abusable',    '>= 0.0.2',    :require => 'acts_as_abusable'
+gem 'rubyist-aasm',                     '~> 2.1.1',    :require => 'aasm'
 gem 'oauth',                            '>=0.3.5'
+group :test do
+  gem 'thoughtbot-factory_girl',                      :require => 'factory_girl'
+  gem 'thoughtbot-shoulda',               '>=2.10.1', :require => 'shoulda'
+  gem 'mocha',                            '0.9.7'
+end
   }
 end
 
@@ -220,7 +219,7 @@ Before starting, you may want to take a look at ASPsocial development wiki for k
 issues, guides...
 
 Press Enter to continue, or Ctrl-C to abort.}
-STDIN.gets
+  STDIN.gets
 end
 
 def introduction_banner
@@ -239,7 +238,7 @@ Don't worry if anything goes wrong. This installer will advise you on how to
 solve any problems.
 
 Press Enter to continue, or Ctrl-C to abort.}
-STDIN.gets
+  STDIN.gets
 end
 
 def tog_user_banner
@@ -251,7 +250,7 @@ If you're creating a new app #{"it's definitely recommended to install this plug
 If you've already using a user library in the host app you can skip this step.
 
 Press Enter to install tog_user, or 'n' to skip this step
-eos
+  eos
 end
 
 def congratulations_banner
@@ -264,7 +263,7 @@ Hurrah!... everything should be fine now. Some things you could try:
 * You can install more tog plugins. For a list of available plugins check
   http://www.toghq.com/tog_plugins
 
-eos
+  eos
 end
 
 def installation_step(title, &block)
@@ -285,17 +284,33 @@ installation_step "..:: ASPgems Social ::.." do
 end
 
 installation_step "Install bundler and bundle gems..." do
-  if yes?("Install bundler with sudo?")
-    run 'sudo gem install bundler'
-  else
-    run 'gem install bundler'
+  if yes?("Do you install bundler?")
+    if yes?("Install bundler with sudo?")
+      run 'sudo gem install bundler'
+    else
+      run 'gem install bundler'
+    end
   end
   create_bundler_gemfile
   puts 'Bundling gems...'
-  run 'gem bundle'
+  run 'bundle install'
   puts 'Creating preinitializer...'
   file 'config/preinitializer.rb', %q{
-require File.join(RAILS_ROOT, 'vendor', 'bundled_gems', 'ruby', '1.8', 'environment')
+begin
+  require "rubygems"
+  require "bundler"
+
+  if Gem::Version.new(Bundler::VERSION) <= Gem::Version.new("0.9.5")
+    raise RuntimeError, "Your bundler version is too old." +
+     "Run `gem install bundler` to upgrade."
+  end
+
+  # Set up load paths for all bundled gems
+  Bundler.setup
+rescue Bundler::GemNotFound
+  raise RuntimeError, "Bundler couldn't find some gems." +
+    "Did you run `bundle install`?"
+end
   }
   # extend Boot.run in config/boot.rb to work with passenger's smart mode
   gsub_file 'config/boot.rb', /^(end)/, %Q{\\1\n\n
@@ -316,7 +331,7 @@ class Rails::Boot
     end
   end
 end
-}
+  }
 end
 
 # Create the project's databases
@@ -351,7 +366,7 @@ development:
 test:
 \s\sdatabase: #{APP_NAME + '_test'}
 #{database_config}
-  EOF
+    EOF
   end
 
   file 'config/database.yml', database_yml
@@ -365,18 +380,18 @@ end
 installation_step "Installing plugin dependencies..." do
 
   install_svn_plugins({
-    'seo_urls'          => "http://svn.redshiftmedia.com/svn/plugins/seo_urls"
-  })
+      'seo_urls'          => "http://svn.redshiftmedia.com/svn/plugins/seo_urls"
+    })
 
   #also installed restful_authentication by tog_user optional part
   install_git_plugins({
-    'paperclip'         => "git://github.com/thoughtbot/paperclip.git",
-    'viking'            => "git://github.com/technoweenie/viking.git",
-    'acts_as_shareable' => "git://github.com/molpe/acts_as_shareable.git",
-    'fckeditor'         => "git://github.com/molpe/fckeditor.git",
-    'acts_as_list'      => "git://github.com/rails/acts_as_list.git",
-    'acts_as_voteable'  => "git://github.com/aspgems/acts_as_voteable.git"
-  })
+      'paperclip'         => "git://github.com/thoughtbot/paperclip.git",
+      'viking'            => "git://github.com/technoweenie/viking.git",
+      'acts_as_shareable' => "git://github.com/molpe/acts_as_shareable.git",
+      'fckeditor'         => "git://github.com/molpe/fckeditor.git",
+      'acts_as_list'      => "git://github.com/rails/acts_as_list.git",
+      'acts_as_voteable'  => "git://github.com/aspgems/acts_as_voteable.git"
+    })
 
 end
 
@@ -401,16 +416,16 @@ end
 
 installation_step "Installing tog blueprint plugin..." do
   install_git_plugins({
-    'tog_blueprint' => 'git://github.com/aspgems/tog_blueprint.git'
-  })
+      'tog_blueprint' => 'git://github.com/aspgems/tog_blueprint.git'
+    })
 end
 
 installation_step "Installing optional plugins..." do
   %w[ tog_conversatio tog_forum ].each do |plugin|
     if yes? "Install #{plugin}?"
       install_plugins_with_template({
-        plugin => "http://tr.im/aspgems_#{plugin}"
-      })
+          plugin => "http://tr.im/aspgems_#{plugin}"
+        })
     end
   end
 end
