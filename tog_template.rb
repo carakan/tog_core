@@ -78,6 +78,7 @@ def create_bundler_gemfile
   file "Gemfile", %Q{
 source :gemcutter
 gem 'rails',                            '#{rails_version}'
+gem 'sqlite3-ruby'
 gem 'tog-tog',                          '>= 0.5.4',    :require => 'tog'
 gem 'mislav-will_paginate',             '~> 2.3.6',    :require => 'will_paginate'
 gem 'desert',                           '>= 0.5.2'
@@ -90,7 +91,7 @@ gem 'rubyist-aasm',                     '~> 2.1.1',    :require => 'aasm'
 gem 'oauth',                            '>=0.3.5'
 group :test do
   gem 'thoughtbot-factory_girl',                      :require => 'factory_girl'
-  gem 'thoughtbot-shoulda',               '>=2.10.1', :require => 'shoulda'
+  gem 'shoulda',               '>=2.10.1', :require => 'shoulda'
   gem 'mocha',                            '0.9.7'
 end
   }
@@ -293,7 +294,7 @@ installation_step "Install bundler and bundle gems..." do
   end
   create_bundler_gemfile
   puts 'Bundling gems...'
-  run 'bundle install'
+  run 'bundle install vendor/bundle'
   puts 'Creating preinitializer...'
   file 'config/preinitializer.rb', %q{
 begin
@@ -317,18 +318,14 @@ end
 class Rails::Boot
   def run
     load_initializer
-    extend_environment
-    Rails::Initializer.run(:set_load_path)
-  end
 
-  def extend_environment
     Rails::Initializer.class_eval do
-      old_load = instance_method(:load_environment)
-      define_method(:load_environment) do
-        Bundler.require_env RAILS_ENV
-        old_load.bind(self).call
+      def load_gems
+        @bundler_loaded ||= Bundler.require :default, Rails.env
       end
     end
+
+    Rails::Initializer.run(:set_load_path)
   end
 end
   }
